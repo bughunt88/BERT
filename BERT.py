@@ -27,8 +27,6 @@ dataset_dir = os.path.join(os.path.dirname(dataset), 'aclImdb')
 train_dir = os.path.join(dataset_dir, 'train')
 
 
-
-
 # remove unused folders to make it easier to load the data
 remove_dir = os.path.join(train_dir, 'unsup')
 shutil.rmtree(remove_dir)
@@ -38,9 +36,9 @@ batch_size = 32
 seed = 42
 
 
-
 # text_dataset_from_directory 유틸리티를 사용하여 레이블이있는tf.data.Dataset 을 만듭니다.
 # 데이터 자르고 생성 부분 
+
 raw_train_ds = tf.keras.preprocessing.text_dataset_from_directory(
     'aclImdb/train',
     batch_size=batch_size,
@@ -66,8 +64,6 @@ test_ds = tf.keras.preprocessing.text_dataset_from_directory(
 
 test_ds = test_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
-
-
 # 자른 데이터 보여주는 코드
 
 # for text_batch, label_batch in train_ds.take(1):
@@ -77,9 +73,7 @@ test_ds = test_ds.cache().prefetch(buffer_size=AUTOTUNE)
 #     print(f'Label : {label} ({class_names[label]})')
 
 
-
-
-# bert 모델 미세 조정 
+# bert 다양한 모델
 
 bert_model_name = 'small_bert/bert_en_uncased_L-4_H-512_A-8' 
 
@@ -221,13 +215,11 @@ map_model_to_preprocess = {
         'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
 }
 
+# BERT 모델 선택
 tfhub_handle_encoder = map_name_to_handle[bert_model_name]
+
+# BERT 전처리 레이어 선택
 tfhub_handle_preprocess = map_model_to_preprocess[bert_model_name]
-
-print(f'BERT model selected           : {tfhub_handle_encoder}')
-print(f'Preprocess model auto-selected: {tfhub_handle_preprocess}')
-
-
 
 
 # 전처리 모델  
@@ -257,27 +249,21 @@ print(f'Sequence Outputs Shape:{bert_results["sequence_output"].shape}')
 print(f'Sequence Outputs Values:{bert_results["sequence_output"][0, :12]}')
 
 
-
-
 def build_classifier_model():
     text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
+
     preprocessing_layer = hub.KerasLayer(tfhub_handle_preprocess, name='preprocessing')
     encoder_inputs = preprocessing_layer(text_input)
     encoder = hub.KerasLayer(tfhub_handle_encoder, trainable=True, name='BERT_encoder')
     outputs = encoder(encoder_inputs)
+
     net = outputs['pooled_output']
     net = tf.keras.layers.Dropout(0.1)(net)
     net = tf.keras.layers.Dense(1, activation=None, name='classifier')(net)
+
     return tf.keras.Model(text_input, net)
 
 classifier_model = build_classifier_model()
-
-bert_raw_result = classifier_model(tf.constant(text_test))
-print(tf.sigmoid(bert_raw_result))
-
-tf.keras.utils.plot_model(classifier_model)
-
-
 
 
 # 옵티마이저 및 모델 세팅
@@ -290,12 +276,10 @@ steps_per_epoch = tf.data.experimental.cardinality(train_ds).numpy()
 num_train_steps = steps_per_epoch * epochs
 num_warmup_steps = int(0.1*num_train_steps)
 
+# BERT 사전 학습과 동일한 일정을 사용
 init_lr = 3e-5
+
 optimizer = optimization.create_optimizer(init_lr=init_lr, num_train_steps=num_train_steps, num_warmup_steps=num_warmup_steps, optimizer_type='adamw')
-
-
-
-
 
 
 # BERT 모델로드 및 훈련
@@ -311,11 +295,6 @@ loss, accuracy = classifier_model.evaluate(test_ds)
 
 print(f'Loss: {loss}')
 print(f'Accuracy: {accuracy}')
-
-
-
-
-
 
 
 # 시간 경과에 따른 정확성과 손실 도표 (불필요)
@@ -359,12 +338,7 @@ saved_model_path = './{}_bert'.format(dataset_name.replace('/', '_'))
 
 classifier_model.save(saved_model_path, include_optimizer=False)
 
-
-
 reloaded_model = tf.saved_model.load(saved_model_path)
-
-
-
 
 
 
