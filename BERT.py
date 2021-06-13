@@ -1,4 +1,4 @@
-# BERT 코랩 코드
+# BERT 코랩 코드!
 
 #!pip install -q -U tensorflow-text
 #!pip install -q tf-models-official
